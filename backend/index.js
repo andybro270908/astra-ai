@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { v4 as uuidv4 } from "uuid";
-import { runAI } from "./aiRouter.js";
+import { handleAgent } from "./agent.js";
 
 dotenv.config();
 
@@ -13,40 +13,31 @@ app.use(express.json());
 const PORT = process.env.PORT || 5000;
 
 /* =========================
-   🧠 MEMORY (RAM ONLY)
+   🧠 MEMORY
 ========================= */
-
 const sessions = {};
 const MAX_HISTORY = 20;
 
-function getSession(sessionId) {
-  if (!sessions[sessionId]) {
-    sessions[sessionId] = [];
-  }
-  return sessions[sessionId];
+function getSession(id) {
+  if (!sessions[id]) sessions[id] = [];
+  return sessions[id];
 }
 
-function addMessage(sessionId, role, content) {
-  const session = getSession(sessionId);
-
+function addMessage(id, role, content) {
+  const session = getSession(id);
   session.push({ role, content });
 
-  // Keep memory small (important for performance)
   if (session.length > MAX_HISTORY) {
     session.shift();
   }
 }
 
 /* =========================
-   🔑 SESSION HANDLER
+   🔑 SESSION
 ========================= */
-
 app.use((req, res, next) => {
   let sessionId = req.headers["x-session-id"];
-
-  if (!sessionId) {
-    sessionId = uuidv4();
-  }
+  if (!sessionId) sessionId = uuidv4();
 
   req.sessionId = sessionId;
   res.setHeader("x-session-id", sessionId);
@@ -55,48 +46,42 @@ app.use((req, res, next) => {
 });
 
 /* =========================
-   🧪 HEALTH CHECK
+   🧪 TEST
 ========================= */
-
 app.get("/", (req, res) => {
   res.json({ status: "Astra AI running" });
 });
 
 /* =========================
-   🤖 CHAT ENDPOINT
+   🤖 CHAT (AGENT POWERED)
 ========================= */
-
 app.post("/chat", async (req, res) => {
   const { message } = req.body;
-  const sessionId = req.sessionId;
+  const id = req.sessionId;
 
   if (!message) {
     return res.status(400).json({ error: "Message required" });
   }
 
-  // Save user message
-  addMessage(sessionId, "user", message);
+  addMessage(id, "user", message);
 
   try {
-    const history = getSession(sessionId);
+    const history = getSession(id);
 
-    // Call AI Router
-    const reply = await runAI(history);
+    const reply = await handleAgent(message, history);
 
-    // Save AI reply
-    addMessage(sessionId, "assistant", reply);
+    addMessage(id, "assistant", reply);
 
     res.json({ reply });
-  } catch (error) {
-    console.error(error);
-    res.json({ reply: "⚠️ Astra encountered an error." });
+  } catch (err) {
+    console.error(err);
+    res.json({ reply: "⚠️ Astra error." });
   }
 });
 
 /* =========================
-   🚀 START SERVER
+   🚀 START
 ========================= */
-
 app.listen(PORT, () => {
   console.log(`🚀 Astra running on port ${PORT}`);
 });
