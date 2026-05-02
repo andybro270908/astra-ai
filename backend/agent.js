@@ -1,54 +1,54 @@
-import { calculate, webSearch } from "./tools.js";
+import { calculate, webSearch, generatePDF } from "./tools.js";
 import { runAI } from "./aiRouter.js";
 
-/* =========================
-   🧠 INTENT DETECTION
-========================= */
-function detectIntent(message) {
-  const msg = message.toLowerCase();
+function detectIntent(msg) {
+  msg = msg.toLowerCase();
 
   if (/^[0-9+\-*/(). ]+$/.test(msg)) return "math";
   if (msg.includes("research")) return "research";
-  if (msg.includes("news") || msg.includes("latest")) return "web";
+  if (msg.includes("report")) return "report";
+  if (msg.includes("news")) return "web";
 
   return "chat";
 }
 
-/* =========================
-   🤖 AGENT LOGIC
-========================= */
-export async function handleAgent(message, history) {
+async function agentLoop(message, history) {
+  let context = "";
+
+  // Step 1: search
+  context = await webSearch(message);
+
+  // Step 2: analyze
+  return await runAI([
+    ...history,
+    {
+      role: "user",
+      content: `Using this data:\n${context}\nAnswer:\n${message}`
+    }
+  ]);
+}
+
+export async function handleAgent(message, history, res) {
   const intent = detectIntent(message);
 
-  // 🔢 CALCULATOR
   if (intent === "math") {
-    const result = calculate(message);
-    if (result) return result;
+    return calculate(message);
   }
 
-  // 🌐 WEB SEARCH
   if (intent === "web") {
-    const data = await webSearch(message);
-    return `🌐 Web Result:\n${data}`;
+    return await webSearch(message);
   }
 
-  // 🧠 RESEARCH MODE (multi-step)
   if (intent === "research") {
-    const searchData = await webSearch(message);
-
-    const prompt = [
-      ...history,
-      {
-        role: "user",
-        content: `Summarize and structure this:\n${searchData}`
-      }
-    ];
-
-    const aiResponse = await runAI(prompt);
-
-    return `📚 Research Summary:\n\n${aiResponse}`;
+    const result = await agentLoop(message, history);
+    return `📚 Research:\n\n${result}`;
   }
 
-  // 🤖 DEFAULT → AI
+  if (intent === "report") {
+    const result = await agentLoop(message, history);
+    generatePDF(result, res);
+    return null;
+  }
+
   return await runAI(history);
 }
