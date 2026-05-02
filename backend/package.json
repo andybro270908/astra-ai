@@ -2,7 +2,7 @@
   "name": "astra-ai",
   "version": "1.0.0",
   "type": "module",
-  "main": "backend/index.js",
+  "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
@@ -11,6 +11,10 @@
     "cors": "^2.8.5",
     "dotenv": "^16.0.0",
     "uuid": "^9.0.0",
-    "node-fetch": "^3.3.2"
+    "node-fetch": "^3.3.2",
+    "multer": "^1.4.5",
+    "cloudinary": "^1.37.0",
+    "pdfkit": "^0.13.0",
+    "pdf-parse": "^1.1.1"
   }
 }
